@@ -5,13 +5,16 @@ MainWindow::MainWindow(QWidget *parent) :
   QMainWindow(parent),
   ui(new Ui::MainWindow)
 {
+
   ui->setupUi(this);
   m_TestSpeed = 0;
 
   // Taille de la fenêtre
   QSize windowSize = size();
-  int width = windowSize.width();
-  int height = windowSize.height();
+  width = windowSize.width();
+  height = windowSize.height();
+
+  qDebug() << width << height;
 
   // On initialise l'ensemble des variables de télémétrie
   initDataTelemetry();
@@ -66,11 +69,13 @@ MainWindow::MainWindow(QWidget *parent) :
   // On lance la récupération de la télémétrie
   launchTelemetry();
 
-  //Evènements de clique
+  //Evènements, boutons d'action
   connect(m_buttonFlight, SIGNAL(clicked()), this, SLOT(launchFlight()));
+  connect(m_buttonResettingAlt, SIGNAL(clicked()), this, SLOT(resettingAltimeter()));
 }
 
 /**
+ * Initialisation des différentes informations de télémétrie
  * @brief MainWindow::initDataTelemetry
  */
 void MainWindow::initDataTelemetry()
@@ -90,9 +95,14 @@ void MainWindow::initDataTelemetry()
   m_mavlinkGy = 0;
   m_mavlinkGz = 0;
 
-  m_mavlinkLatitude = "";
-  m_mavlinkLongitude = "";
+  m_mavlinkLatitude = 0;
+  m_mavlinkLongitude = 0;
   m_mavlinkAltitude = 0;
+
+  m_offsetAltitude = 0;
+
+  m_oldLatitude = 0;
+  m_oldLongitude = 0;
 }
 
 /**
@@ -102,16 +112,20 @@ void MainWindow::initDataTelemetry()
 void MainWindow::launchTelemetry()
 {  
   qRegisterMetaType<QList<QString> >("QList<QString>");
+
   // Création de l'objet Télémétrie
   mTelemetry = new Telemetry(this);
+
   // On connecte Signal/Slot de la télémétrie à l'IHM
   connect(mTelemetry, SIGNAL(valueChanged(QList<QString>)), this, SLOT(onValueChanged(QList<QString>)));
   connect(mTelemetry, SIGNAL(messageEmitted(QString)), this, SLOT(messageDisplay(QString)));
+
   // Lancement du Thread de Télémétrie
   mTelemetry->start();
 }
 
 /**
+ * Initialisation de la carte
  * @brief MainWindow::setMap
  * @param QVBoxLayout parentElement
  * @param int width
@@ -120,6 +134,7 @@ void MainWindow::launchTelemetry()
 void MainWindow::setMap(QVBoxLayout *parentElement, int width, int height)
 {
   m_mapControl = new QMapControl(QSizeF(width+10, height+105));
+  m_mapControl->enablePersistentCache();
   m_mapControl->addLayer(std::make_shared<LayerMapAdapter>("Custom Layer", std::make_shared<MapAdapterOSM>()));
   m_mapControl->setMapFocusPoint(PointWorldCoord(3.2689,50.1425));
   m_mapControl->setZoom(15);
@@ -130,24 +145,43 @@ void MainWindow::setMap(QVBoxLayout *parentElement, int width, int height)
   parentElement->addWidget(m_mapControl);
 }
 
+/**
+ * Affichage d'un point sur la carte suivant les coordonnées GPS
+ * récupérées du raspberry
+ * @brief MainWindow::setPosition
+ * @param Longitude
+ * @param Latitude
+ */
 void MainWindow::setPosition(float Longitude, float Latitude)
 {
-  QPen pen(QColor(255, 0, 0, 100));
-  pen.setWidth(1);
-  std::vector<std::shared_ptr<GeometryPoint>> points;
-  points.emplace_back(std::make_shared<GeometryPointCircle>(PointWorldCoord(Longitude,Latitude)));
-  points.back()->setPen(pen);
+  Longitude = Longitude/100;
+  Latitude = Latitude/100;
 
-  std::vector<PointWorldCoord> raw_points;
-  for(const auto& point : points){
-      raw_points.push_back(point->coord());
+  // On affiche un point si et seulement si latitude et longitude sont différents du point précédent.
+  if (Longitude != m_oldLongitude || Latitude != m_oldLatitude) {
+
+      std::shared_ptr<LayerGeometry> m_layerGeometries(std::make_shared<LayerGeometry>("Geometry Layer"));
+
+      QPen pen(QColor(255, 0, 0, 100));
+      pen.setWidth(1);
+
+      std::shared_ptr<GeometryPoint>point = std::make_shared<GeometryPointCircle>(PointWorldCoord(Longitude,Latitude));
+      point->setPen(pen);
+
+      m_mapControl->setMapFocusPoint(PointWorldCoord(Longitude,Latitude));
+
       m_layerGeometries->addGeometry(point);
+      m_mapControl->addLayer(m_layerGeometries);
+      m_oldLatitude = Latitude;
+      m_oldLongitude = Longitude;
+      qDebug() << "setPosition";
     }
 }
 
-
 /**
+ * Création et affichage du PFD
  * @brief MainWindow::setMapPFDLayout
+ * @param parentElement
  */
 void MainWindow::setPFD(QVBoxLayout *parentElement)
 {  
@@ -156,15 +190,20 @@ void MainWindow::setPFD(QVBoxLayout *parentElement)
 }
 
 /**
+ * Boutons d'action (Enregistrement de vol, mise à 0 de l'altimètre)
  * @brief MainWindow::setActionButton
  */
 void MainWindow::setActionButton(QVBoxLayout *parentElement)
 {
   m_buttonFlight = new QPushButton("New Flight");
+  m_buttonResettingAlt = new QPushButton("Resetting the altimeter");
+
+  parentElement->addWidget(m_buttonResettingAlt);
   parentElement->addWidget(m_buttonFlight);
 }
 
 /**
+ * Affichage des données brutes
  * @brief MainWindow::setRawData
  * @param parentElement
  */
@@ -181,18 +220,29 @@ void MainWindow::setRawData(QVBoxLayout *parentElement)
   m_vAlt = new QLabel("0");
   m_vLong = new QLabel("0");
   m_vLat = new QLabel("0");
+  m_vAltOffset = new QLabel("0");
   m_vSpeed = new QLabel("0");
   m_messageEmitted = new QLabel("");
 
+  // Messages d'information
   layoutRawData->addRow("Message  : ", m_messageEmitted);
+
+  // Affichage des données inertielles
   layoutRawData->addRow("Pitch  : ", m_vPitch);
   layoutRawData->addRow("Roll  : ", m_vRoll);
   layoutRawData->addRow("Yaw  : ", m_vYaw);
+
+  // Affichage des données d'acceléromètre
   layoutRawData->addRow("G Pitch  : ", m_vGPitch);
   layoutRawData->addRow("G Roll  : ", m_vGRoll);
   layoutRawData->addRow("G Yaw  : ", m_vGYaw);
+
+  // Affichage des données vitesse et altitude
   layoutRawData->addRow("Vitesse  : ", m_vSpeed);
   layoutRawData->addRow("Altitude  : ", m_vAlt);
+  layoutRawData->addRow("Altitude Offset  : ", m_vAltOffset);
+
+  // Affichage des données GPS
   layoutRawData->addRow("Longitude  : ", m_vLong);
   layoutRawData->addRow("Latitude  : ", m_vLat);
 
@@ -200,6 +250,7 @@ void MainWindow::setRawData(QVBoxLayout *parentElement)
 }
 
 /**
+ * SLOT : Affichage des messages d'info
  * @brief MainWindow::messageDisplay
  * @param message
  */
@@ -208,16 +259,35 @@ void MainWindow::messageDisplay(QString message)
   m_messageEmitted->setText("<font color=\"#e85050\">"+message+"</font>");
 }
 
+/**
+ * @brief MainWindow::launchFlight
+ */
 void MainWindow::launchFlight()
 {
   if (m_flagRecordFlight == false) {
+      m_oldLongitude = 0;
+      m_oldLatitude = 0;
+      m_flagDisplayMap = 0;
       m_buttonFlight->setText("Flight in progress");
       m_flagRecordFlight = true;
-      m_sql = new Sql();
+      m_sql = new Sql(this);
+
+      connect(mTelemetry, SIGNAL(valueChanged(QList<QString>)), this, SLOT(onRecorded(QList<QString>)));
+
+      // Lancement du Thread de Télémétrie
+      m_sql->start();
     } else {
       m_buttonFlight->setText("New Flight");
       m_flagRecordFlight = false;
     }
+}
+
+/**
+ * @brief MainWindow::launchFlight
+ */
+void MainWindow::resettingAltimeter()
+{
+  m_offsetAltitude = m_mavlinkAltitude;
 }
 
 
@@ -229,7 +299,9 @@ void MainWindow::onValueChanged(QList<QString> mapData)
 {
   bool flagConvert = true;
 
+  // Récupération des informations provenant des capteurs
   if (mapData.size() == 15) {
+      // Statut
       m_mavlinkAutopilot = mapData[0].toInt(&flagConvert);
       m_mavlinkBasemode = mapData[1].toInt(&flagConvert);
       m_mavlinkCustommode = mapData[2].toInt(&flagConvert);
@@ -237,43 +309,86 @@ void MainWindow::onValueChanged(QList<QString> mapData)
       m_mavlinkSystemstatus = mapData[4].toInt(&flagConvert);
       m_mavlinkType = mapData[5].toInt(&flagConvert);
 
+      // Attitude
       m_mavlinkX = mapData[6].toFloat(&flagConvert);
       m_mavlinkY = mapData[7].toFloat(&flagConvert);
       m_mavlinkZ = mapData[8].toFloat(&flagConvert);
 
+      // Accélération
       m_mavlinkGx = mapData[9].toFloat(&flagConvert);
       m_mavlinkGy = mapData[10].toFloat(&flagConvert);
       m_mavlinkGz = mapData[11].toFloat(&flagConvert);
 
-      m_mavlinkLatitude = mapData[12];
-      m_mavlinkLongitude = mapData[13];
+      // Position
+      m_mavlinkLatitude = mapData[12].toFloat(&flagConvert);
+      m_mavlinkLongitude = mapData[13].toFloat(&flagConvert);
       m_mavlinkAltitude = mapData[14].toFloat(&flagConvert);
     }
 
+  // Envoi vers l'instrument PFD
   m_instrument->setX(m_mavlinkX);
   m_instrument->setY(m_mavlinkY);
   m_instrument->setZ(m_mavlinkZ);
-  m_instrument->setAlt(m_mavlinkAltitude);
+  m_instrument->setAlt(m_mavlinkAltitude - m_offsetAltitude);
   m_instrument->setSpeed(m_TestSpeed);
 
+  // Affichage de la valeur brute des capteurs
   m_vPitch->setText(QString::number((1./100.) * floor(m_mavlinkX * 100.)));
   m_vRoll->setText(QString::number((1./100.) * floor(m_mavlinkY * 100.)));
   m_vYaw->setText(QString::number((1./100.) * floor(m_mavlinkZ * 100.)));
   m_vGPitch->setText(QString::number((1./100.) * floor(m_mavlinkGx * 100.)));
   m_vGRoll->setText(QString::number((1./100.) * floor(m_mavlinkGy * 100.)));
   m_vGYaw->setText(QString::number((1./100.) * floor(m_mavlinkGz * 100.)));
-  m_vAlt->setText(QString::number((1./100.) * floor(m_mavlinkAltitude * 100.)));
-  m_vLong->setText((m_mavlinkLongitude=="")?"No GPS data":m_mavlinkLongitude);
-  m_vLat->setText((m_mavlinkLatitude=="")?"No GPS data":m_mavlinkLatitude);
+  m_vAlt->setText(QString::number((1./100.) * floor((m_mavlinkAltitude - m_offsetAltitude) * 100.)));
+  m_vAltOffset->setText(QString::number(m_offsetAltitude));
+  m_vLong->setText((m_mavlinkLongitude==0)?"No GPS data":QString::number((1./100.) * floor(m_mavlinkLongitude * 100.)));
+  m_vLat->setText((m_mavlinkLatitude==0)?"No GPS data":QString::number((1./100.) * floor(m_mavlinkLatitude)));
   m_vSpeed->setText(QString::number(m_TestSpeed));
 
-  if (m_mavlinkLongitude != "") {
-      setPosition(m_mavlinkLongitude.toFloat(), m_mavlinkLatitude.toFloat());
+  // Affichage de la position sur la carte
+  if (m_mavlinkLongitude != 0 && m_flagDisplayMap >= 10000) {
+      setPosition(m_mavlinkLongitude, m_mavlinkLatitude);
+      m_flagDisplayMap = 0;
     }
+  m_flagDisplayMap++;
+}
 
-  if (m_flagRecordFlight == 1) {
-      m_sql->AddDataTelemetry(m_mavlinkX, m_mavlinkY, m_mavlinkZ, m_mavlinkGx, m_mavlinkGy, m_mavlinkGz, m_mavlinkLatitude, m_mavlinkLongitude, m_mavlinkAltitude);
+/**
+ * @brief MainWindow::onValueChanged
+ * @param mapData
+ */
+void MainWindow::onRecorded(QList<QString> mapData)
+{
+  bool flagConvert = true;
+  // Récupération des informations provenant des capteurs
+  if (mapData.size() == 15) {
+      // Attitude
+      m_sql->setMavlinkX(mapData[6].toFloat(&flagConvert));
+      m_sql->setMavlinkY(mapData[7].toFloat(&flagConvert));
+      m_sql->setMavlinkZ(mapData[8].toFloat(&flagConvert));
+
+      // Accélération
+      m_sql->setMavlinkGX(mapData[9].toFloat(&flagConvert));
+      m_sql->setMavlinkGY(mapData[10].toFloat(&flagConvert));
+      m_sql->setMavlinkGZ(mapData[11].toFloat(&flagConvert));
+
+      // Position
+      m_sql->setMavlinkLatitude(mapData[12].toFloat(&flagConvert));
+      m_sql->setMavlinkLongitude(mapData[13].toFloat(&flagConvert));
+      m_sql->setMavlinkAltitude(mapData[14].toFloat(&flagConvert));
+
+      m_sql->setDataAvailable(true);
     }
+}
+
+
+void MainWindow::resizeEvent(QResizeEvent * event)
+{
+  // Taille de la fenêtre
+  QSize windowSize = size();
+  width = windowSize.width();
+  height = windowSize.height();
+  m_mapControl->setViewportSize(QSizeF(width+10, height+105));
 }
 
 /**
@@ -282,8 +397,7 @@ void MainWindow::onValueChanged(QList<QString> mapData)
 MainWindow::~MainWindow()
 {
   mTelemetry->quit();
+  m_sql->quit();
   delete mTelemetry;
   delete ui;
 }
-
-

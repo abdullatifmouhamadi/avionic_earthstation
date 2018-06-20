@@ -52,11 +52,13 @@ public:
 
 public slots:
   void onValueChanged(QList<QString>);
+  void onRecorded(QList<QString>);
   void messageDisplay(QString);
   void launchTelemetry();
 
 private slots:
   void launchFlight();
+  void resettingAltimeter();
 
 private:
   void setPFD(QVBoxLayout *);
@@ -64,6 +66,7 @@ private:
   void setActionButton(QVBoxLayout *);
   void setMap(QVBoxLayout *, int, int);
   void setPosition(float, float);
+  void resizeEvent(QResizeEvent *);
 
   void initDataTelemetry();
 
@@ -85,12 +88,14 @@ private:
   QLabel *m_vGRoll;
   QLabel *m_vGYaw;
   QLabel *m_vAlt;
+  QLabel *m_vAltOffset;
   QLabel *m_vLong;
   QLabel *m_vLat;
   QLabel *m_vSpeed;
   QLabel *m_messageEmitted;
 
   QPushButton *m_buttonFlight;
+  QPushButton *m_buttonResettingAlt;
 
   QInstrument *m_instrument;
 
@@ -109,16 +114,27 @@ private:
   float m_mavlinkGy;
   float m_mavlinkGz;
 
-  QString m_mavlinkLatitude;
-  QString m_mavlinkLongitude;
+  float m_mavlinkLatitude;
+  float m_mavlinkLongitude;
+
+  float m_oldLatitude;
+  float m_oldLongitude;
+
   float m_mavlinkAltitude;
+  float m_offsetAltitude;
+
+  int width;
+  int height;
+
+  std::shared_ptr<LayerGeometry> m_layerGeometries;
 
   QMapControl* m_mapControl;
-  std::shared_ptr<LayerGeometry> m_layerGeometries;
 
   Sql *m_sql;
 
   bool m_flagRecordFlight = false;
+
+  int m_flagDisplayMap;
 
   int m_TestSpeed;
 };

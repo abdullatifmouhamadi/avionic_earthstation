@@ -1,8 +1,6 @@
 #include "telemetry.h"
 
 /**
- * Constructeur :
- * - On récupère le type de télémétrie par défaut
  * @brief Telemetry::Telemetry
  */
 Telemetry::Telemetry(QObject *parent, bool b) :
@@ -54,7 +52,6 @@ void Telemetry::run()
               m_mavlinkVersion = heartbeat.mavlink_version;
               m_mavlinkSystemstatus = heartbeat.system_status;
               m_mavlinkType = heartbeat.type;
-
               break;
               // Data de la centrale inertielle
             case MAVLINK_MSG_ID_ATTITUDE:
@@ -67,19 +64,18 @@ void Telemetry::run()
               m_mavlinkGx = imu.pitchspeed;
               m_mavlinkGy = imu.rollspeed;
               m_mavlinkGz = imu.yawspeed;
-
               break;
               // Data du GPS
             case MAVLINK_MSG_ID_GPS_RAW_INT:
-              mavlink_global_position_int_t position;
-              mavlink_msg_global_position_int_decode(&message, &position);
+              mavlink_gps_raw_int_t position;
+              mavlink_msg_gps_raw_int_decode(&message, &position);
 
               m_mavlinkLatitude = position.lat;
               m_mavlinkLongitude = position.lon;
               m_mavlinkAltitude = position.alt;
-
               break;
             }
+
 
           // On prépare les informations avant de la envoyer au "emit"
           m_mavlinkData.append(QString::number(m_mavlinkAutopilot));
@@ -97,8 +93,8 @@ void Telemetry::run()
           m_mavlinkData.append(QString::number(m_mavlinkGy));
           m_mavlinkData.append(QString::number(m_mavlinkGz));
 
-          m_mavlinkData.append(m_mavlinkLatitude);
-          m_mavlinkData.append(m_mavlinkLongitude);
+          m_mavlinkData.append(QString::number(m_mavlinkLatitude));
+          m_mavlinkData.append(QString::number(m_mavlinkLongitude));
           m_mavlinkData.append(QString::number(m_mavlinkAltitude));
         }
       usleep(18);
