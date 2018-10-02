@@ -6,6 +6,15 @@
 Telemetry::Telemetry(QObject *parent, bool b) :
   QThread(parent), Stop(b)
 {
+  m_mavlinkX = 0;
+  m_mavlinkY = 0;
+  m_mavlinkZ = 0;
+  m_mavlinkGx = 0;
+  m_mavlinkGy = 0;
+  m_mavlinkGz = 0;
+  m_mavlinkLatitude = 0;
+  m_mavlinkLongitude = 0;
+  m_mavlinkAltitude = 0;
 }
 
 Telemetry::~Telemetry()
@@ -70,12 +79,11 @@ void Telemetry::run()
               mavlink_gps_raw_int_t position;
               mavlink_msg_gps_raw_int_decode(&message, &position);
 
-              m_mavlinkLatitude = position.lat;
-              m_mavlinkLongitude = position.lon;
+              m_mavlinkLatitude = (double)position.lat / 10000000;
+              m_mavlinkLongitude = (double)position.lon / 10000000;
               m_mavlinkAltitude = position.alt;
               break;
             }
-
 
           // On prépare les informations avant de la envoyer au "emit"
           m_mavlinkData.append(QString::number(m_mavlinkAutopilot));
@@ -96,6 +104,8 @@ void Telemetry::run()
           m_mavlinkData.append(QString::number(m_mavlinkLatitude));
           m_mavlinkData.append(QString::number(m_mavlinkLongitude));
           m_mavlinkData.append(QString::number(m_mavlinkAltitude));
+
+          qDebug() << m_mavlinkData;
         }
       usleep(18);
       emit valueChanged(m_mavlinkData);

@@ -126,8 +126,7 @@ private:
   int width;
   int height;
 
-  std::shared_ptr<LayerGeometry> m_layerGeometries;
-
+  std::shared_ptr<LayerGeometry> m_customLayer;
   QMapControl* m_mapControl;
 
   Sql *m_sql;
@@ -137,6 +136,9 @@ private:
   int m_flagDisplayMap;
 
   int m_TestSpeed;
+
+  float m_longitudeDefault = 3.2689;
+  float m_latitudeDefault = 50.1425;
 };
 
 #endif // MAINWINDOW_H

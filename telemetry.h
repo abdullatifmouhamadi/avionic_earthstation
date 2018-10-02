@@ -69,8 +69,8 @@ private:
 
   QSerialPort *m_serialPort;
 
-  int32_t m_mavlinkLatitude;
-  int32_t m_mavlinkLongitude;
+  float_t m_mavlinkLatitude;
+  float_t m_mavlinkLongitude;
   float m_mavlinkAltitude;
 
   QList<QString> m_mavlinkData;

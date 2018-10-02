@@ -5,7 +5,6 @@ MainWindow::MainWindow(QWidget *parent) :
   QMainWindow(parent),
   ui(new Ui::MainWindow)
 {
-
   ui->setupUi(this);
   m_TestSpeed = 0;
 
@@ -13,8 +12,6 @@ MainWindow::MainWindow(QWidget *parent) :
   QSize windowSize = size();
   width = windowSize.width();
   height = windowSize.height();
-
-  qDebug() << width << height;
 
   // On initialise l'ensemble des variables de télémétrie
   initDataTelemetry();
@@ -133,14 +130,21 @@ void MainWindow::launchTelemetry()
  */
 void MainWindow::setMap(QVBoxLayout *parentElement, int width, int height)
 {
+  // Déclaration de la carte
   m_mapControl = new QMapControl(QSizeF(width+10, height+105));
+  // On garde le cache en local
   m_mapControl->enablePersistentCache();
-  m_mapControl->addLayer(std::make_shared<LayerMapAdapter>("Custom Layer", std::make_shared<MapAdapterOSM>()));
-  m_mapControl->setMapFocusPoint(PointWorldCoord(3.2689,50.1425));
+  // Layer OpenStreetMap
+  m_mapControl->addLayer(std::make_shared<LayerMapAdapter>("Map", std::make_shared<MapAdapterOSM>()));
+
+  // Positionnement par défaut sur l'aérodrome de Niergnies :p
+  m_mapControl->setMapFocusPoint(PointWorldCoord(m_longitudeDefault,m_latitudeDefault));
   m_mapControl->setZoom(15);
 
-  std::shared_ptr<LayerGeometry> m_layerGeometries(std::make_shared<LayerGeometry>("Geometry Layer"));
-  m_mapControl->addLayer(m_layerGeometries);
+  // Ajout d'un Layer visant à recevoir la route
+  std::shared_ptr<LayerGeometry> customLayer(std::make_shared<LayerGeometry>("route"));
+  m_mapControl->addLayer(customLayer);
+  m_customLayer = customLayer;
 
   parentElement->addWidget(m_mapControl);
 }
@@ -154,27 +158,16 @@ void MainWindow::setMap(QVBoxLayout *parentElement, int width, int height)
  */
 void MainWindow::setPosition(float Longitude, float Latitude)
 {
-  Longitude = Longitude/100;
-  Latitude = Latitude/100;
-
   // On affiche un point si et seulement si latitude et longitude sont différents du point précédent.
   if (Longitude != m_oldLongitude || Latitude != m_oldLatitude) {
-
-      std::shared_ptr<LayerGeometry> m_layerGeometries(std::make_shared<LayerGeometry>("Geometry Layer"));
-
-      QPen pen(QColor(255, 0, 0, 100));
-      pen.setWidth(1);
-
+      QPen pen(Qt::red, 3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
       std::shared_ptr<GeometryPoint>point = std::make_shared<GeometryPointCircle>(PointWorldCoord(Longitude,Latitude));
       point->setPen(pen);
-
+      m_customLayer->addGeometry(point);
       m_mapControl->setMapFocusPoint(PointWorldCoord(Longitude,Latitude));
 
-      m_layerGeometries->addGeometry(point);
-      m_mapControl->addLayer(m_layerGeometries);
       m_oldLatitude = Latitude;
       m_oldLongitude = Longitude;
-      qDebug() << "setPosition";
     }
 }
 
@@ -267,7 +260,6 @@ void MainWindow::launchFlight()
   if (m_flagRecordFlight == false) {
       m_oldLongitude = 0;
       m_oldLatitude = 0;
-      m_flagDisplayMap = 0;
       m_buttonFlight->setText("Flight in progress");
       m_flagRecordFlight = true;
       m_sql = new Sql(this);
@@ -346,15 +338,13 @@ void MainWindow::onValueChanged(QList<QString> mapData)
   m_vSpeed->setText(QString::number(m_TestSpeed));
 
   // Affichage de la position sur la carte
-  if (m_mavlinkLongitude != 0 && m_flagDisplayMap >= 10000) {
+  if (m_mavlinkLongitude != 0) {
       setPosition(m_mavlinkLongitude, m_mavlinkLatitude);
-      m_flagDisplayMap = 0;
     }
-  m_flagDisplayMap++;
 }
 
 /**
- * @brief MainWindow::onValueChanged
+ * @brief MainWindow::onRecorded
  * @param mapData
  */
 void MainWindow::onRecorded(QList<QString> mapData)
