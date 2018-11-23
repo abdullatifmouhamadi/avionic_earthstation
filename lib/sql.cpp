@@ -21,6 +21,44 @@ Sql::Sql(QObject *parent, bool b) :
     }
 }
 
+QList<QList<QString>> Sql::findAll ()
+{
+  if (!m_db.open()) {
+      return m_findAllData;
+    }
+
+  QSqlQuery m_query(m_db);
+  m_query.exec("SELECT mavlink_x, mavlink_y, mavlink_z, mavlink_gx, mavlink_gy, mavlink_gz, mavlink_latitude, mavlink_longitude, mavlink_altitude FROM flight_data ORDER BY id" );
+
+  while( m_query.next() )
+    {
+      QList<QString> m_mavlinkData;
+
+      m_mavlinkData.append("");
+      m_mavlinkData.append("");
+      m_mavlinkData.append("");
+      m_mavlinkData.append("");
+      m_mavlinkData.append("");
+      m_mavlinkData.append("");
+
+      m_mavlinkData.append(m_query.value(0).toString());
+      m_mavlinkData.append(m_query.value(1).toString());
+      m_mavlinkData.append(m_query.value(2).toString());
+
+      m_mavlinkData.append(m_query.value(3).toString());
+      m_mavlinkData.append(m_query.value(4).toString());
+      m_mavlinkData.append(m_query.value(5).toString());
+
+      m_mavlinkData.append(m_query.value(6).toString());
+      m_mavlinkData.append(m_query.value(7).toString());
+      m_mavlinkData.append(m_query.value(8).toString());
+
+      m_findAllData.append(m_mavlinkData);
+    }
+
+  return m_findAllData;
+}
+
 /**
  * Méthode run du thread
  * Enregistrement des informations en BDD, si et seulement si, elles sont dispos.

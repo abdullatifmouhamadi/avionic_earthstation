@@ -18,7 +18,7 @@ Telemetry::Telemetry(QObject *parent, bool b) :
 }
 
 Telemetry::~Telemetry()
-{
+{ 
 }
 
 /**
@@ -104,8 +104,6 @@ void Telemetry::run()
           m_mavlinkData.append(QString::number(m_mavlinkLatitude));
           m_mavlinkData.append(QString::number(m_mavlinkLongitude));
           m_mavlinkData.append(QString::number(m_mavlinkAltitude));
-
-          qDebug() << m_mavlinkData;
         }
       usleep(18);
       emit valueChanged(m_mavlinkData);

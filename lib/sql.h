@@ -8,6 +8,7 @@
 #include <QSqlDatabase>
 #include <QSqlDriverPlugin>
 #include <time.h>
+#include <QList>
 
 class Sql : public QThread
 {
@@ -15,6 +16,8 @@ class Sql : public QThread
 
 public:
   explicit Sql(QObject *parent = 0, bool b = false);
+  QList<QList<QString>> findAll();
+
   void setMavlinkX(double);
   void setMavlinkY(double);
   void setMavlinkZ(double);
@@ -47,6 +50,7 @@ private:
   double m_mavlinkAltitude;
 
   bool m_dataAvailable = false;
+  QList<QList<QString>> m_findAllData;
 };
 
 #endif // SQL_H

@@ -6,15 +6,12 @@ MainWindow::MainWindow(QWidget *parent) :
   ui(new Ui::MainWindow)
 {
   ui->setupUi(this);
-  m_TestSpeed = 0;
 
   // Taille de la fenêtre
   QSize windowSize = size();
   width = windowSize.width();
   height = windowSize.height();
 
-  // On initialise l'ensemble des variables de télémétrie
-  initDataTelemetry();
 
   /*
    * LAYOUT PARTIE GAUCHE
@@ -69,37 +66,18 @@ MainWindow::MainWindow(QWidget *parent) :
   //Evènements, boutons d'action
   connect(m_buttonFlight, SIGNAL(clicked()), this, SLOT(launchFlight()));
   connect(m_buttonResettingAlt, SIGNAL(clicked()), this, SLOT(resettingAltimeter()));
+  connect(m_buttonReplayFlight, SIGNAL(clicked()), this, SLOT(replayLastFLight()));
 }
 
 /**
- * Initialisation des différentes informations de télémétrie
- * @brief MainWindow::initDataTelemetry
+ * Création et affichage du PFD
+ * @brief MainWindow::setMapPFDLayout
+ * @param parentElement
  */
-void MainWindow::initDataTelemetry()
+void MainWindow::setPFD(QVBoxLayout *parentElement)
 {
-  m_mavlinkAutopilot = 0;
-  m_mavlinkBasemode = 0;
-  m_mavlinkCustommode = 0;
-  m_mavlinkVersion = 0;
-  m_mavlinkSystemstatus = 0;
-  m_mavlinkType = 0;
-
-  m_mavlinkX = 0;
-  m_mavlinkY = 0;
-  m_mavlinkZ = 0;
-
-  m_mavlinkGx = 0;
-  m_mavlinkGy = 0;
-  m_mavlinkGz = 0;
-
-  m_mavlinkLatitude = 0;
-  m_mavlinkLongitude = 0;
-  m_mavlinkAltitude = 0;
-
-  m_offsetAltitude = 0;
-
-  m_oldLatitude = 0;
-  m_oldLongitude = 0;
+  m_instrument = new QInstrument();
+  m_instrument->create(parentElement);
 }
 
 /**
@@ -115,6 +93,8 @@ void MainWindow::launchTelemetry()
 
   // On connecte Signal/Slot de la télémétrie à l'IHM
   connect(mTelemetry, SIGNAL(valueChanged(QList<QString>)), this, SLOT(onValueChanged(QList<QString>)));
+  // On connecte Signal/Slot de la télémétrie à l'enregistrement
+  connect(mTelemetry, SIGNAL(valueChanged(QList<QString>)), this, SLOT(onRecorded(QList<QString>)));
   connect(mTelemetry, SIGNAL(messageEmitted(QString)), this, SLOT(messageDisplay(QString)));
 
   // Lancement du Thread de Télémétrie
@@ -172,17 +152,6 @@ void MainWindow::setPosition(float Longitude, float Latitude)
 }
 
 /**
- * Création et affichage du PFD
- * @brief MainWindow::setMapPFDLayout
- * @param parentElement
- */
-void MainWindow::setPFD(QVBoxLayout *parentElement)
-{  
-  m_instrument = new QInstrument();
-  m_instrument->create(parentElement);
-}
-
-/**
  * Boutons d'action (Enregistrement de vol, mise à 0 de l'altimètre)
  * @brief MainWindow::setActionButton
  */
@@ -190,9 +159,11 @@ void MainWindow::setActionButton(QVBoxLayout *parentElement)
 {
   m_buttonFlight = new QPushButton("New Flight");
   m_buttonResettingAlt = new QPushButton("Resetting the altimeter");
+  m_buttonReplayFlight = new QPushButton("Replay last flight");
 
   parentElement->addWidget(m_buttonResettingAlt);
   parentElement->addWidget(m_buttonFlight);
+  parentElement->addWidget(m_buttonReplayFlight);
 }
 
 /**
@@ -243,16 +214,6 @@ void MainWindow::setRawData(QVBoxLayout *parentElement)
 }
 
 /**
- * SLOT : Affichage des messages d'info
- * @brief MainWindow::messageDisplay
- * @param message
- */
-void MainWindow::messageDisplay(QString message)
-{
-  m_messageEmitted->setText("<font color=\"#e85050\">"+message+"</font>");
-}
-
-/**
  * @brief MainWindow::launchFlight
  */
 void MainWindow::launchFlight()
@@ -263,10 +224,6 @@ void MainWindow::launchFlight()
       m_buttonFlight->setText("Flight in progress");
       m_flagRecordFlight = true;
       m_sql = new Sql(this);
-
-      connect(mTelemetry, SIGNAL(valueChanged(QList<QString>)), this, SLOT(onRecorded(QList<QString>)));
-
-      // Lancement du Thread de Télémétrie
       m_sql->start();
     } else {
       m_buttonFlight->setText("New Flight");
@@ -275,19 +232,34 @@ void MainWindow::launchFlight()
 }
 
 /**
- * @brief MainWindow::launchFlight
+ * @brief MainWindow::replayLastFLight
  */
-void MainWindow::resettingAltimeter()
+void MainWindow::replayLastFLight()
 {
-  m_offsetAltitude = m_mavlinkAltitude;
-}
+  mTelemetry->exit();
+  m_flagValidRecordSql = false;
+  QList<QList<QString>> dataLastFlight;
+  m_sql = new Sql(this);
+  dataLastFlight = m_sql->findAll();
 
+  QList<QString> mapData;
+  foreach( mapData, dataLastFlight ) {
+      treatmentData(mapData);
+      usleep(50000);
+    }
+}
 
 /**
  * @brief MainWindow::onValueChanged
  * @param mapData
  */
 void MainWindow::onValueChanged(QList<QString> mapData)
+{
+  m_flagValidRecordSql = true;
+  treatmentData(mapData);
+}
+
+void MainWindow::treatmentData(QList<QString> mapData)
 {
   bool flagConvert = true;
 
@@ -351,7 +323,7 @@ void MainWindow::onRecorded(QList<QString> mapData)
 {
   bool flagConvert = true;
   // Récupération des informations provenant des capteurs
-  if (mapData.size() == 15) {
+  if (mapData.size() == 15 && m_flagValidRecordSql) {
       // Attitude
       m_sql->setMavlinkX(mapData[6].toFloat(&flagConvert));
       m_sql->setMavlinkY(mapData[7].toFloat(&flagConvert));
@@ -371,7 +343,28 @@ void MainWindow::onRecorded(QList<QString> mapData)
     }
 }
 
+/**
+ * SLOT : Affichage des messages d'info
+ * @brief MainWindow::messageDisplay
+ * @param message
+ */
+void MainWindow::messageDisplay(QString message)
+{
+  m_messageEmitted->setText("<font color=\"#e85050\">"+message+"</font>");
+}
 
+/**
+ * @brief MainWindow::launchFlight
+ */
+void MainWindow::resettingAltimeter()
+{
+  m_offsetAltitude = m_mavlinkAltitude;
+}
+
+/**
+ * @brief MainWindow::resizeEvent
+ * @param event
+ */
 void MainWindow::resizeEvent(QResizeEvent * event)
 {
   // Taille de la fenêtre
