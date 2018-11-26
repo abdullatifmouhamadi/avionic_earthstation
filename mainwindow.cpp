@@ -236,7 +236,6 @@ void MainWindow::launchFlight()
  */
 void MainWindow::replayLastFLight()
 {
-  mTelemetry->exit();
   m_flagValidRecordSql = false;
   QList<QList<QString>> dataLastFlight;
   m_sql = new Sql(this);

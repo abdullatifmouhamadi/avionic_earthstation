@@ -1,22 +1,13 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include <QMainWindow>
-#include <QWidget>
-
-#include <lib/QMapControl/QMapControl.h>
-#include "lib/QMapControl/LayerMapAdapter.h"
-#include <lib/QMapControl/MapAdapterOSM.h>
-
-#include <lib/QMapControl/GeometryLineString.h>
-#include <lib/QMapControl/GeometryPointArrow.h>
-#include <lib/QMapControl/GeometryPointCircle.h>
-#include <lib/QMapControl/GeometryPolygon.h>
-#include <lib/QMapControl/GeometryWidget.h>
-#include <lib/QMapControl/LayerGeometry.h>
-
 #include <cmath>
 
+#include <QMainWindow>
+#include <QStringList>
+#include <QString>
+#include <QDebug>
+#include <QWidget>
 #include <QVBoxLayout>
 #include <QFormLayout>
 #include <QGridLayout>
@@ -24,16 +15,21 @@
 #include <QPushButton>
 #include <QLabel>
 
-#include <QStringList>
-#include <QString>
+#include <lib/QMapControl/QMapControl.h>
+#include "lib/QMapControl/LayerMapAdapter.h"
+#include <lib/QMapControl/MapAdapterOSM.h>
+#include <lib/QMapControl/GeometryLineString.h>
+#include <lib/QMapControl/GeometryPointArrow.h>
+#include <lib/QMapControl/GeometryPointCircle.h>
+#include <lib/QMapControl/GeometryPolygon.h>
+#include <lib/QMapControl/GeometryWidget.h>
+#include <lib/QMapControl/LayerGeometry.h>
 
-#include <QDebug>
-
+#include "ihm/menubar.h"
+#include "lib/qInstrument/qinstrument.h"
+#include "config.h"
 #include "telemetry.h"
 #include "lib/sql.h"
-#include "config.h"
-
-#include "lib/qInstrument/qinstrument.h"
 
 namespace Ui {
   class MainWindow;
