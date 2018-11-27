@@ -25,7 +25,7 @@
 #include <lib/QMapControl/GeometryWidget.h>
 #include <lib/QMapControl/LayerGeometry.h>
 
-#include "ihm/menubar.h"
+#include "ihm/menubarstation.h"
 #include "lib/qInstrument/qinstrument.h"
 #include "config.h"
 #include "telemetry.h"
@@ -68,6 +68,8 @@ private:
 
   Ui::MainWindow *ui;
   QWidget *m_widget;
+
+  menuBarStation *m_menuBarStation;
 
   QHBoxLayout *m_hboxMainLayout;
   QVBoxLayout *m_vboxLeftLayout;

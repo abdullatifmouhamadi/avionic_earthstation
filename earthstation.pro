@@ -128,7 +128,7 @@ SOURCES += \
     lib/QMapControl/ProjectionSphericalMercator.cpp             \
     lib/QMapControl/QMapControl.cpp                             \
     lib/QMapControl/QProgressIndicator.cpp \
-    ihm/menubar.cpp
+    ihm/menubarstation.cpp
 
 
 HEADERS += \
@@ -857,7 +857,7 @@ HEADERS += \
     lib/QMapControl/QMapControl.h                               \
     lib/QMapControl/QuadTreeContainer.h                         \
     lib/QMapControl/QProgressIndicator.h \
-    ihm/menubar.h
+    ihm/menubarstation.h
 
 
 INCLUDEPATH = \

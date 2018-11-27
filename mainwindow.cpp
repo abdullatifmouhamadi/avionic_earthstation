@@ -12,6 +12,7 @@ MainWindow::MainWindow(QWidget *parent) :
   width = windowSize.width();
   height = windowSize.height();
 
+  m_menuBarStation->setBar(this);
 
   /*
    * LAYOUT PARTIE GAUCHE
